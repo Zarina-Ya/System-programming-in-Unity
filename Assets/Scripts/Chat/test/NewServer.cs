@@ -160,7 +160,7 @@ public class NewServer : MonoBehaviour
         Stream message = new MemoryStream(buffer);
         BinaryFormatter formatter = new BinaryFormatter();
         formatter.Serialize(message, textInput);
-        NetworkTransport.Send(m_ConnectionID, m_ClientSocket, m_ChannelID, buffer, (int)message.Position, out error);
+        NetworkTransport.Send(m_ServerSocket, m_ClientSocket, m_ChannelID, buffer, (int)message.Position, out error);
 
 
         if ((NetworkError)error != NetworkError.Ok)
