@@ -14,12 +14,15 @@ public class NewServer : MonoBehaviour
     public static int postServer = 99999;
     HostTopology m_HostTopology;
 
-    List<int> clientsSokets = new List<int>();
+    Dictionary<int, string> clientsSokets = new Dictionary<int, string>();
     public Button m_ServerButton;
 
     public TMPro.TMP_Text _log;
 
-    bool _isActiveServer = false;
+    private  bool _isActiveServer = false;
+
+    
+
     private void Start()
     {
         _isActiveServer = false;
@@ -43,7 +46,7 @@ public class NewServer : MonoBehaviour
             AddToLogMess("Server is on");
             byte error;
             m_ServerSocket = NetworkTransport.AddHost(m_HostTopology, postServer);
-            NetworkTransport.Connect(m_ServerSocket, "127.0.0.1", postServer, 0, out error);
+            //NetworkTransport.Connect(m_ServerSocket, "127.0.0.1", postServer, 0, out error);
 
 
             m_ServerButton.GetComponentInChildren<TMPro.TMP_Text>().text = "ShutDownServer";
@@ -93,7 +96,8 @@ public class NewServer : MonoBehaviour
 
             case NetworkEventType.ConnectEvent:
                 {
-                    clientsSokets.Add(outConnectionId);
+
+                    clientsSokets.Add(outConnectionId, null);
                     OnConnect(outHostId, outConnectionId, (NetworkError)error);
                     break;
                 }
@@ -106,9 +110,10 @@ public class NewServer : MonoBehaviour
                 }
             case NetworkEventType.DisconnectEvent:
                 {
+                    SendMessageToAllClient($"{clientsSokets[outConnectionId]} has disconnected.");
                     clientsSokets.Remove(outConnectionId);
                     AddToLogMess($"Player {outConnectionId} has disconnected.");
-                    SendMessageToAllClient($"Player {outConnectionId} has disconnected.");
+                    
                     break;
                 }
 
@@ -132,9 +137,16 @@ public class NewServer : MonoBehaviour
             + connectionId + ", channelId = " + channelId + ", data = "
             + message + ", size = " + size + ", error = " + error.ToString() + ")");
 
-        //m_InputField.text = "data = " + message;
-        AddToLogMess($"Player {connectionId} : {message}");
-        SendMessageToAllClient($"Player {connectionId} : {message}");
+        if (clientsSokets.GetValueOrDefault(connectionId) == null)
+        {
+            clientsSokets[connectionId] = message;
+            SendMessageToAllClient($"{clientsSokets[connectionId]} has connected.");
+        }
+        else
+        {
+            AddToLogMess($"{clientsSokets.GetValueOrDefault(connectionId)} : {message}");
+            SendMessageToAllClient($"{clientsSokets.GetValueOrDefault(connectionId)}  : {message}");
+        }
     }
 
     void OnConnect(int hostID, int connectionID, NetworkError error)
@@ -143,8 +155,6 @@ public class NewServer : MonoBehaviour
             + connectionID + ", error = " + error.ToString() + ")");
        
         AddToLogMess($"Player {connectionID} has connected.");
-
-        SendMessageToAllClient($"Player {connectionID} has connected.");
     }
 
 
@@ -170,8 +180,8 @@ public class NewServer : MonoBehaviour
 
     public void SendMessageToAllClient(string message)
     {
-        foreach (int idConnection in clientsSokets)
-            SendMessage(idConnection, message);
+        foreach (var idConnection in clientsSokets)
+            SendMessage(idConnection.Key, message);
     }
 }
 

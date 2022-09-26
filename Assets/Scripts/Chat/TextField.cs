@@ -12,6 +12,10 @@ public class TextField : MonoBehaviour
     [SerializeField]
     private Scrollbar scrollbar;
     private List<string> messages = new List<string>();
+    private void Awake()
+    {
+        NewClient.OnMessage += ReceiveMessage;
+    }
     private void Start()
     {
         scrollbar.onValueChanged.AddListener((float value) => UpdateText());

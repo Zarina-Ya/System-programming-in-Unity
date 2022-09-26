@@ -1,4 +1,5 @@
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -22,16 +23,24 @@ public class NewClient : MonoBehaviour
 
     HostTopology m_HostTopology;
     public TMPro.TMP_InputField m_InputField;
+    public TMPro.TMP_InputField m_nameInputField;
 
     public bool m_IsConnected = false;
+    string nameClient;
     string myText;
+
+    public static Action<string> OnMessage;
     void Start()
     {
         m_IsConnected = false;
+        m_ConnectionID = -1;
         ConnectionConfig config = new ConnectionConfig();
         m_ChannelID = config.AddChannel(QosType.Reliable);
         m_HostTopology = new HostTopology(config, 20);
         NetworkTransport.Init();
+
+        m_InputField.gameObject.SetActive(m_IsConnected);
+        _sendButton.gameObject.SetActive(m_IsConnected);
 
 
         _sendButton.onClick.AddListener(SendMessageField);
@@ -45,24 +54,58 @@ public class NewClient : MonoBehaviour
     }
     public void Connect()
     {
-        byte error;
-        m_ClientSocket = NetworkTransport.AddHost(m_HostTopology);
-        m_ConnectionID = NetworkTransport.Connect(m_ClientSocket, "127.0.0.1", NewServer.postServer, 0, out error);
+        nameClient  = m_nameInputField.text;
+        if (!string.IsNullOrEmpty(nameClient) && m_IsConnected == false) 
+        {
+            byte error;
+            if (m_ConnectionID == -1)
+            {
+                m_ClientSocket = NetworkTransport.AddHost(m_HostTopology);
+                m_ConnectionID = NetworkTransport.Connect(m_ClientSocket, "127.0.0.1", NewServer.postServer, 0, out error);
+                if ((NetworkError)error != NetworkError.Ok)
+                {
+                    OnMessage?.Invoke("Error: " + (NetworkError)error);
+                }
+                else
+                {
+                    m_IsConnected = true;
+                    m_InputField.gameObject.SetActive(m_IsConnected);
+                    _sendButton.gameObject.SetActive(m_IsConnected);
+                    m_nameInputField.gameObject.SetActive(!m_IsConnected);
+                }
 
-        if ((NetworkError)error != NetworkError.Ok)
-            Debug.Log("Error: " + (NetworkError)error);
-        else m_IsConnected = true;
+            }
+
+
+        }
+        else 
+        {
+            OnMessage?.Invoke("Enter your name");
+        }
+        
     }
 
     public void Disconnect()
     {
-
-        byte error;
-        NetworkTransport.Disconnect(m_ClientSocket, m_ConnectionID, out error);
-        if ((NetworkError)error != NetworkError.Ok)
-            Debug.Log("Error: " + (NetworkError)error);
-        else m_IsConnected = false;
-
+        if (m_IsConnected)
+        {
+            byte error;
+            NetworkTransport.Disconnect(m_ClientSocket, m_ConnectionID, out error);
+            if ((NetworkError)error != NetworkError.Ok)
+                OnMessage?.Invoke("Error: " + (NetworkError)error);
+            else
+            {
+                m_IsConnected = false;
+                m_ConnectionID = -1;
+                m_InputField.gameObject.SetActive(m_IsConnected);
+                m_nameInputField.gameObject.SetActive(!m_IsConnected);
+                _sendButton.gameObject.SetActive(m_IsConnected);
+            }
+        }
+        else
+        {
+            OnMessage?.Invoke("You are not connected");
+        }
     }
 
     public void AddTextChat(string mess)
@@ -88,6 +131,7 @@ public class NewClient : MonoBehaviour
             case NetworkEventType.ConnectEvent:
                 {
                     Debug.Log($"You have been connected to server.");
+                    SendMessage(nameClient);
                     break;
                 }
 
@@ -97,7 +141,8 @@ public class NewClient : MonoBehaviour
                     Stream serializedMessage = new MemoryStream(buffer);
                     BinaryFormatter formatter = new BinaryFormatter();
                     string message = formatter.Deserialize(serializedMessage).ToString();
-                    AddTextChat(message);
+                    //AddTextChat(message);
+                    OnMessage?.Invoke(message);
                     Debug.Log(message);
                     break;
                 }
